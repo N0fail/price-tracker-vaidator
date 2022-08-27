@@ -48,7 +48,10 @@ make .deps
 
 ## SWAGGER
 
-Для проекта также запускается сваггер по адресу http://localhost:8090/swagger/
+Для проекта также запускается сваггер по адресу 
+```
+http://localhost:8090/swagger/
+```
 
 ## Примеры запросов к REST
 
@@ -71,4 +74,20 @@ curl -X GET 'localhost:8090/v1/price?code=1'
 - Удаление продукта
 ```
 curl -X DELETE 'localhost:8090/v1/product?code=1'
+```
+
+### Kafka
+
+Запросы от валидатора к основному сервису на создание/удаление продукта и добавление цен переведены на kafka
+Для запуска kafka нужно выполнить в основном репозитории (price-tracker)
+```
+make up_kafka
+```
+Kafka-ui запускается по адресу
+```
+http://localhost:8080/ui/
+```
+Также добавлены счетчики запросов и ошибок(outRequestsCounter, errorsCounter), их можно посмотреть по адресу
+```
+http://127.0.0.1:8300/debug/vars
 ```
