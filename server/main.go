@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"log"
+	"net/http"
 )
 
 func main() {
@@ -24,5 +25,6 @@ func main() {
 	ctx = metadata.AppendToOutgoingContext(ctx, "custom", "hello")
 
 	go runREST()
+	go http.ListenAndServe("127.0.0.1:8300", nil)
 	runGRPCServer(client)
 }

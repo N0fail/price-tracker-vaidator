@@ -9,7 +9,6 @@ import (
 	"gitlab.ozon.dev/N0fail/price-tracker-validator/internal/kafka/config"
 	"gitlab.ozon.dev/N0fail/price-tracker-validator/internal/kafka/counter"
 	"log"
-	"net/http"
 	"time"
 )
 
@@ -115,6 +114,5 @@ func New() RequestProducerI {
 		outRequestsCounter: counter.New("outRequestsCounter"),
 		errorsCounter:      counter.New("errorsCounter"),
 	}
-	http.ListenAndServe("127.0.0.1:8300", nil)
 	return requestProducer
 }

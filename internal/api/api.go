@@ -4,6 +4,8 @@ import (
 	"context"
 	"gitlab.ozon.dev/N0fail/price-tracker-validator/internal/config"
 	"gitlab.ozon.dev/N0fail/price-tracker-validator/internal/error_codes"
+	"gitlab.ozon.dev/N0fail/price-tracker-validator/internal/kafka"
+	kafkaConfig "gitlab.ozon.dev/N0fail/price-tracker-validator/internal/kafka/config"
 	pb "gitlab.ozon.dev/N0fail/price-tracker-validator/pkg/api"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -11,13 +13,15 @@ import (
 
 func New(clientMain pb.AdminClient) pb.AdminServer {
 	return &implementation{
-		clientMain: clientMain,
+		clientMain:     clientMain,
+		kafkaRequester: kafka.New(),
 	}
 }
 
 type implementation struct {
 	pb.UnimplementedAdminServer
-	clientMain pb.AdminClient
+	clientMain     pb.AdminClient
+	kafkaRequester kafka.RequestProducerI
 }
 
 func (i *implementation) ProductCreate(ctx context.Context, in *pb.ProductCreateRequest) (*pb.ProductCreateResponse, error) {
@@ -29,7 +33,17 @@ func (i *implementation) ProductCreate(ctx context.Context, in *pb.ProductCreate
 		return nil, status.Error(codes.InvalidArgument, error_codes.ErrNameTooShortError.Error())
 	}
 
-	return i.clientMain.ProductCreate(ctx, in)
+	//return i.clientMain.ProductCreate(ctx, in)
+	err := i.kafkaRequester.ProductCreate(kafkaConfig.ProductCreateRequest{
+		Code: in.GetCode(),
+		Name: in.GetName(),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.ProductCreateResponse{}, nil
 }
 
 func (i *implementation) ProductList(ctx context.Context, in *pb.ProductListRequest) (*pb.ProductListResponse, error) {
@@ -45,7 +59,16 @@ func (i *implementation) ProductList(ctx context.Context, in *pb.ProductListRequ
 }
 
 func (i *implementation) ProductDelete(ctx context.Context, in *pb.ProductDeleteRequest) (*pb.ProductDeleteResponse, error) {
-	return i.clientMain.ProductDelete(ctx, in)
+	err := i.kafkaRequester.ProductDelete(kafkaConfig.ProductDeleteRequest{
+		Code: in.GetCode(),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.ProductDeleteResponse{}, nil
+	//return i.clientMain.ProductDelete(ctx, in)
 }
 
 func (i *implementation) PriceTimeStampAdd(ctx context.Context, in *pb.PriceTimeStampAddRequest) (*pb.PriceTimeStampAddResponse, error) {
@@ -57,7 +80,19 @@ func (i *implementation) PriceTimeStampAdd(ctx context.Context, in *pb.PriceTime
 		return nil, status.Error(codes.InvalidArgument, error_codes.ErrEmptyCode.Error())
 	}
 
-	return i.clientMain.PriceTimeStampAdd(ctx, in)
+	err := i.kafkaRequester.PriceTimeStampAdd(kafkaConfig.PriceTimeStampAddRequest{
+		Code:  in.GetCode(),
+		Price: in.GetPrice(),
+		Ts:    in.GetTs(),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.PriceTimeStampAddResponse{}, nil
+
+	//return i.clientMain.PriceTimeStampAdd(ctx, in)
 }
 func (i *implementation) PriceHistory(ctx context.Context, in *pb.PriceHistoryRequest) (*pb.PriceHistoryResponse, error) {
 	return i.clientMain.PriceHistory(ctx, in)
