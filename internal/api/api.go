@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/go-redis/redis/v8"
 	"github.com/sirupsen/logrus"
 	"gitlab.ozon.dev/N0fail/price-tracker-validator/internal/config"
 	"gitlab.ozon.dev/N0fail/price-tracker-validator/internal/error_codes"
@@ -14,16 +16,25 @@ import (
 )
 
 func New(clientMain pb.AdminClient) pb.AdminServer {
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     "localhost" + config.RedisPort,
+		Password: "",
+		DB:       0,
+	})
 	return &implementation{
-		clientMain:     clientMain,
-		kafkaRequester: kafka.New(),
+		clientMain:      clientMain,
+		kafkaRequester:  kafka.New(),
+		priceHistorySub: redisClient.PSubscribe(context.Background(), kafkaConfig.PriceHistoryTopic),
+		productListSub:  redisClient.PSubscribe(context.Background(), kafkaConfig.ProductListTopic),
 	}
 }
 
 type implementation struct {
 	pb.UnimplementedAdminServer
-	clientMain     pb.AdminClient
-	kafkaRequester kafka.RequestProducerI
+	clientMain      pb.AdminClient
+	kafkaRequester  kafka.RequestProducerI
+	priceHistorySub *redis.PubSub
+	productListSub  *redis.PubSub
 }
 
 func (i *implementation) ProductCreate(ctx context.Context, in *pb.ProductCreateRequest) (*pb.ProductCreateResponse, error) {
@@ -73,8 +84,16 @@ func (i *implementation) ProductList(ctx context.Context, in *pb.ProductListRequ
 		return nil, err
 	}
 
+	message := <-i.productListSub.Channel()
+	res := new(pb.ProductListResponse)
+	err = json.Unmarshal([]byte(message.Payload), res)
+	if err != nil {
+		logrus.Errorf("ProductList error in Unmarshal: %v", err.Error())
+		return nil, err
+	}
+
+	return res, nil
 	//return i.clientMain.ProductList(ctx, in)
-	return &pb.ProductListResponse{}, nil
 }
 
 func (i *implementation) ProductDelete(ctx context.Context, in *pb.ProductDeleteRequest) (*pb.ProductDeleteResponse, error) {
@@ -111,7 +130,6 @@ func (i *implementation) PriceTimeStampAdd(ctx context.Context, in *pb.PriceTime
 		return nil, err
 	}
 
-	// TODO read from redis
 	return &pb.PriceTimeStampAddResponse{}, nil
 	//return i.clientMain.PriceTimeStampAdd(ctx, in)
 }
@@ -125,7 +143,14 @@ func (i *implementation) PriceHistory(ctx context.Context, in *pb.PriceHistoryRe
 		return nil, err
 	}
 
-	// TODO read from redis
-	return &pb.PriceHistoryResponse{}, nil
+	message := <-i.priceHistorySub.Channel()
+	res := new(pb.PriceHistoryResponse)
+	err = json.Unmarshal([]byte(message.Payload), res)
+	if err != nil {
+		logrus.Errorf("PriceHistory error in Unmarshal: %v", err.Error())
+		return nil, err
+	}
+
+	return res, nil
 	// return i.clientMain.PriceHistory(ctx, in)
 }

@@ -163,6 +163,7 @@ func New() RequestProducerI {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+
 	requestProducer := &RequestProducer{
 		sp:                 producer,
 		outRequestsCounter: counter.New("outRequestsCounter"),
