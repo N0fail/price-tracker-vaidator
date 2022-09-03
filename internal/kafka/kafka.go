@@ -16,6 +16,8 @@ type RequestProducerI interface {
 	ProductCreate(request config.ProductCreateRequest) error
 	ProductDelete(request config.ProductDeleteRequest) error
 	PriceTimeStampAdd(request config.PriceTimeStampAddRequest) error
+	ProductList(request config.ProductListRequest) error
+	PriceHistory(request config.PriceHistoryRequest) error
 }
 
 type RequestProducer struct {
@@ -98,6 +100,58 @@ func (r *RequestProducer) PriceTimeStampAdd(request config.PriceTimeStampAddRequ
 	}
 
 	logrus.Infof("success PriceTimeStampAdd code: %v, price: %v, date: %v", request.Code, request.Price, time.Unix(request.Ts, 0).Format("2 Jan 2006 15:04"))
+
+	return nil
+}
+
+func (r *RequestProducer) ProductList(request config.ProductListRequest) error {
+	r.outRequestsCounter.Inc()
+	str, err := json.Marshal(request)
+	if err != nil {
+		r.errorsCounter.Inc()
+		logrus.Errorf("kafka ProductList error in json.Marshal: %v", err.Error())
+		return error_codes.ErrExternalProblem
+	}
+
+	_, _, err = r.sp.SendMessage(&sarama.ProducerMessage{
+		Topic: config.ProductListTopic,
+		Key:   sarama.StringEncoder(fmt.Sprintf("%v", r.outRequestsCounter.Get())),
+		Value: sarama.ByteEncoder(str),
+	})
+
+	if err != nil {
+		r.errorsCounter.Inc()
+		logrus.Errorf("kafka ProductList error in SendMessage: %v", err.Error())
+		return error_codes.GetInternal(err)
+	}
+
+	logrus.Infof("success ProductList")
+
+	return nil
+}
+
+func (r *RequestProducer) PriceHistory(request config.PriceHistoryRequest) error {
+	r.outRequestsCounter.Inc()
+	str, err := json.Marshal(request)
+	if err != nil {
+		r.errorsCounter.Inc()
+		logrus.Errorf("kafka PriceHistory error in json.Marshal: %v", err.Error())
+		return error_codes.ErrExternalProblem
+	}
+
+	_, _, err = r.sp.SendMessage(&sarama.ProducerMessage{
+		Topic: config.PriceHistoryTopic,
+		Key:   sarama.StringEncoder(fmt.Sprintf("%v", r.outRequestsCounter.Get())),
+		Value: sarama.ByteEncoder(str),
+	})
+
+	if err != nil {
+		r.errorsCounter.Inc()
+		logrus.Errorf("kafka PriceHistory error in SendMessage: %v", err.Error())
+		return error_codes.GetInternal(err)
+	}
+
+	logrus.Infof("success PriceHistory")
 
 	return nil
 }

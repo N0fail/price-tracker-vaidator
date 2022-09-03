@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
 	"gitlab.ozon.dev/N0fail/price-tracker-validator/internal/config"
 	"gitlab.ozon.dev/N0fail/price-tracker-validator/internal/error_codes"
 	"gitlab.ozon.dev/N0fail/price-tracker-validator/internal/kafka"
@@ -45,6 +46,7 @@ func (i *implementation) ProductCreate(ctx context.Context, in *pb.ProductCreate
 	})
 
 	if err != nil {
+		logrus.Errorf("ProductCreate error during sending kafka request: %v", err.Error())
 		return nil, err
 	}
 
@@ -60,7 +62,19 @@ func (i *implementation) ProductList(ctx context.Context, in *pb.ProductListRequ
 		in.ResultsPerPage = config.DefaultResultsPerPage
 	}
 
-	return i.clientMain.ProductList(ctx, in)
+	err := i.kafkaRequester.ProductList(kafkaConfig.ProductListRequest{
+		PageNumber:     in.GetPageNumber(),
+		ResultsPerPage: in.GetResultsPerPage(),
+		OrderBy:        int32(in.GetOrderBy()),
+	})
+
+	if err != nil {
+		logrus.Errorf("ProductList error during sending kafka request: %v", err.Error())
+		return nil, err
+	}
+
+	//return i.clientMain.ProductList(ctx, in)
+	return &pb.ProductListResponse{}, nil
 }
 
 func (i *implementation) ProductDelete(ctx context.Context, in *pb.ProductDeleteRequest) (*pb.ProductDeleteResponse, error) {
@@ -69,6 +83,7 @@ func (i *implementation) ProductDelete(ctx context.Context, in *pb.ProductDelete
 	})
 
 	if err != nil {
+		logrus.Errorf("ProductDelete error during sending kafka request: %v", err.Error())
 		return nil, err
 	}
 
@@ -92,13 +107,25 @@ func (i *implementation) PriceTimeStampAdd(ctx context.Context, in *pb.PriceTime
 	})
 
 	if err != nil {
+		logrus.Errorf("PriceTimeStampAdd error during sending kafka request: %v", err.Error())
 		return nil, err
 	}
 
+	// TODO read from redis
 	return &pb.PriceTimeStampAddResponse{}, nil
-
 	//return i.clientMain.PriceTimeStampAdd(ctx, in)
 }
 func (i *implementation) PriceHistory(ctx context.Context, in *pb.PriceHistoryRequest) (*pb.PriceHistoryResponse, error) {
-	return i.clientMain.PriceHistory(ctx, in)
+	err := i.kafkaRequester.PriceHistory(kafkaConfig.PriceHistoryRequest{
+		Code: in.GetCode(),
+	})
+
+	if err != nil {
+		logrus.Errorf("PriceHistory error during sending kafka request: %v", err.Error())
+		return nil, err
+	}
+
+	// TODO read from redis
+	return &pb.PriceHistoryResponse{}, nil
+	// return i.clientMain.PriceHistory(ctx, in)
 }
