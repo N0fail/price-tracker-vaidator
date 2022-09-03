@@ -9,6 +9,7 @@ import (
 	pb "gitlab.ozon.dev/N0fail/price-tracker-validator/pkg/api"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"strings"
 )
 
 func New(clientMain pb.AdminClient) pb.AdminServer {
@@ -31,6 +32,10 @@ func (i *implementation) ProductCreate(ctx context.Context, in *pb.ProductCreate
 
 	if len(in.GetName()) < config.MinNameLength {
 		return nil, status.Error(codes.InvalidArgument, error_codes.ErrNameTooShortError.Error())
+	}
+
+	if strings.ContainsAny(in.GetCode(), config.InvalidCodeSymbols) {
+		return nil, status.Error(codes.InvalidArgument, error_codes.ErrCodeWithInvalidSymbol.Error())
 	}
 
 	//return i.clientMain.ProductCreate(ctx, in)
